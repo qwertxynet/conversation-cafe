@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PASSWORD_HASH, T } from './i18n.js';
-import { store, sha256, useStored } from '../lib/store.js';
-import { dayPlan } from '../lib/content.js';
-import { join, play } from '../lib/game.js';
+import { sha256, store, useStored } from '../lib/store.js';
 import { audio } from '../lib/audio.js';
-import { connectedTokens, sendToPeer, sendToToken, startHost, stopHost, tagConnection } from '../lib/net.js';
+import { startHost, stopHost } from '../lib/net.js';
+import { onPhoneMessage } from './sync.js';
 import GameTab from './GameTab.jsx';
 import EditTab from './EditTab.jsx';
 import PrintTab from './PrintTab.jsx';
@@ -17,36 +16,6 @@ let unlocked = false;
 export function useLang() {
   const [lang, setLang] = useStored('lang', 'en');
   return { lang, t: T[lang] || T.en, dir: lang === 'ar' ? 'rtl' : 'ltr', toggle: () => setLang(lang === 'ar' ? 'en' : 'ar') };
-}
-
-/** What a phone needs to show: phase, the current question and that player's hand. */
-export function syncFor(g, token) {
-  const plan = dayPlan(g.day, store.get('custom', {}));
-  return {
-    type: 'sync',
-    phase: g.phase,
-    day: g.day,
-    title: plan.day.title,
-    qn: g.q + 1,
-    qTotal: plan.questions.length,
-    question: plan.questions[g.q]?.q || '',
-    hand: g.players[token]?.hand || [],
-  };
-}
-
-export function syncAll() {
-  const g = store.get('game', null);
-  if (!g) return;
-  for (const token of connectedTokens()) sendToToken(token, syncFor(g, token));
-}
-
-/** Change the game, save it, and update every phone. */
-export function updateGame(fn) {
-  const g = store.get('game', null);
-  if (!g) return;
-  const ng = fn(g);
-  if (ng && ng !== g) store.set('game', ng);
-  syncAll();
 }
 
 export default function Host({ tab }) {
@@ -126,12 +95,17 @@ const TABS = ['game', 'edit', 'print', 'log', 'backup'];
 
 function Controls({ L, tab, lock }) {
   const { t, dir, lang, toggle } = L;
-  const [game] = useStored('game', null);
+  const [stored] = useStored('game', null);
+  const game = stored?.v === 2 ? stored : null; // a game saved by the old version is ignored
   const [vol, setVol] = useStored('volume', { v: 0.6, muted: false });
   const [net, setNet] = useState('off');
   const [, bump] = useState(0);
   const refresh = useCallback(() => bump((n) => n + 1), []);
   const active = TABS.includes(tab) ? tab : 'game';
+
+  useEffect(() => {
+    if (stored && stored.v !== 2) store.set('game', undefined);
+  }, [stored]);
 
   // ───── phones: host the game while one is open ─────
   const pin = game?.pin;
@@ -139,32 +113,7 @@ function Controls({ L, tab, lock }) {
   handlers.current = {
     onStatus: setNet,
     onLeave: refresh,
-    onMessage: (peerId, m) => {
-      if (!m || typeof m !== 'object') return;
-      const g = store.get('game', null);
-      if (!g) return sendToPeer(peerId, { type: 'reject', reason: 'ended' });
-      if (m.type === 'hello') {
-        const token = String(m.token || '').slice(0, 64);
-        if (!token) return;
-        const res = join(g, token, m.name, !!m.test);
-        if (res.error) return sendToPeer(peerId, { type: 'reject', reason: res.error });
-        if (res.g !== g) {
-          store.set('game', res.g);
-          audio.sfx('join');
-        }
-        tagConnection(peerId, token);
-        sendToPeer(peerId, { type: 'welcome' });
-        sendToPeer(peerId, syncFor(res.g, token));
-        refresh();
-      } else if (m.type === 'play') {
-        const res = play(g, m.token, m.id);
-        if (res.ok) {
-          store.set('game', res.g);
-          audio.sfx('play');
-        }
-        sendToToken(m.token, syncFor(res.g, m.token));
-      }
-    },
+    onMessage: (peerId, m) => onPhoneMessage(peerId, m, refresh),
   };
   useEffect(() => {
     if (!pin) {

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { DAYS, ALL_CARDS } from '../lib/content.js';
+import { CARDS, DAYS } from '../lib/content.js';
 import { exportBackup, importBackup, useStored } from '../lib/store.js';
 
 export function LogTab({ t }) {
@@ -11,8 +11,7 @@ export function LogTab({ t }) {
     <section className="h-log">
       {entries.map((e) => {
         const d = DAYS.find((x) => x.n === e.day);
-        const counts = {};
-        e.cards.forEach((id) => (counts[id] = (counts[id] || 0) + 1));
+        const current = e.v === 2;
         return (
           <article key={e.id} className="panel h-sec">
             <div className="h-row">
@@ -20,9 +19,11 @@ export function LogTab({ t }) {
               <b>
                 {t.day} {e.day}: {d?.en}
               </b>
-              <span className="muted">
-                {t.reached}: {e.reached}/{e.total}
-              </span>
+              {current && (
+                <span className="muted">
+                  {t.turnsLogged}: {e.turns}
+                </span>
+              )}
               <span className="h-spacer" />
               <button className="btn small ghost" onClick={() => confirm(t.deleteSure) && setLog(entries.filter((x) => x.id !== e.id))}>
                 {t.delete}
@@ -31,22 +32,23 @@ export function LogTab({ t }) {
             <p className="small">
               <b>{t.playersList}:</b>{' '}
               <span lang="ar" dir="rtl">
-                {e.players.join('، ') || '–'}
+                {(e.players || []).join('، ') || '–'}
               </span>
             </p>
-            <details>
-              <summary>
-                {t.cardsUsed}: {e.cards.length}
-              </summary>
-              <ul className="h-loglist" dir="rtl" lang="ar">
-                {Object.entries(counts).map(([id, n]) => (
-                  <li key={id}>
-                    {ALL_CARDS[id]?.t || id}
-                    {n > 1 ? ` ×${n}` : ''}
-                  </li>
-                ))}
-              </ul>
-            </details>
+            {current ? (
+              <details>
+                <summary>
+                  {t.answered}: {e.cards.length}
+                </summary>
+                <ol className="h-loglist" dir="rtl" lang="ar">
+                  {e.cards.map((id) => (
+                    <li key={id}>{CARDS[id]?.q || id}</li>
+                  ))}
+                </ol>
+              </details>
+            ) : (
+              <p className="muted small">{t.oldEntry}</p>
+            )}
             <label className="h-notes">
               {t.notes}
               <Notes value={e.notes} onSave={(v) => patch(e.id, { notes: v })} />

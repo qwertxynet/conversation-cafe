@@ -121,7 +121,9 @@ a {
   color: var(--ink);
   border: 3px solid var(--brass);
   border-radius: 16px;
-  box-shadow: 0 0 0 4px var(--leather), 0 10px 26px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 4px var(--leather),
+    0 10px 26px rgba(0, 0, 0, 0.5);
   padding: 10px 14px 14px;
   text-align: center;
   direction: rtl;
@@ -172,7 +174,9 @@ a {
   padding: 6px 9px 8px;
   border-width: 2px;
   border-radius: 12px;
-  box-shadow: 0 0 0 3px var(--leather), 0 6px 14px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 0 0 3px var(--leather),
+    0 6px 14px rgba(0, 0, 0, 0.45);
 }
 .card.sm .card-text {
   font-size: 1.35em;
@@ -248,4 +252,173 @@ a {
   font-family: var(--f-ui);
   font-weight: 700;
   color: var(--candle);
+}
+
+/* ───────── emblems ───────── */
+.emb {
+  --size: 44px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 28%, rgba(255, 255, 255, 0.22), transparent 55%), var(--emb);
+  border: calc(var(--size) * 0.07) solid var(--brass);
+  box-shadow:
+    inset 0 0 0 calc(var(--size) * 0.03) rgba(27, 20, 16, 0.6),
+    0 calc(var(--size) * 0.08) calc(var(--size) * 0.2) rgba(0, 0, 0, 0.5);
+}
+.emb svg {
+  width: 64%;
+  height: 64%;
+  fill: none;
+  stroke: #f6ead0;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ───────── the 3D question card ───────── */
+.c3 {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  perspective: 1800px;
+}
+button.c3 {
+  cursor: pointer;
+}
+.c3-in {
+  position: relative;
+  display: grid;
+  transform-style: preserve-3d;
+  transition: transform 0.9s cubic-bezier(0.3, 0.75, 0.25, 1);
+}
+.c3.flipped .c3-in {
+  transform: rotateY(180deg);
+}
+.c3-face {
+  grid-area: 1 / 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.45em;
+  padding: 0.75em 1.05em 0.95em;
+  color: var(--ink);
+  background: linear-gradient(160deg, #f5ebd4 0%, var(--parch) 45%, var(--parch-2) 100%);
+  border: 0.14em solid var(--brass);
+  border-radius: 0.7em;
+  box-shadow:
+    0 0 0 0.18em var(--leather),
+    0 1em 2.2em rgba(0, 0, 0, 0.55);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(3px);
+}
+.c3-face::after {
+  content: '';
+  position: absolute;
+  inset: 0.3em;
+  border: 1px solid rgba(125, 42, 36, 0.28);
+  border-radius: 0.5em;
+  pointer-events: none;
+}
+.c3-back {
+  transform: rotateY(180deg) translateZ(3px);
+  background: linear-gradient(200deg, #f2e4c4 0%, #e8d6b0 100%);
+}
+.c3-edge {
+  position: absolute;
+  top: 0.7em;
+  bottom: 0.7em;
+  width: 6px;
+  background: linear-gradient(90deg, #a88440, #ead7a6, #a88440);
+}
+.c3-edge.l {
+  left: -3px;
+  transform: rotateY(90deg);
+}
+.c3-edge.r {
+  right: -3px;
+  transform: rotateY(90deg);
+}
+.c3-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1em;
+  font-size: 0.6em;
+  font-weight: 700;
+  color: var(--oxblood);
+}
+.c3-top .stars {
+  color: #a37b22;
+}
+.c3-q {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  font-family: var(--f-card);
+  font-weight: 700;
+  font-size: 1.15em;
+  line-height: 1.7;
+}
+.c3-foot {
+  font-size: 0.58em;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.c3-frame {
+  display: block;
+  text-align: start;
+  padding: 0.3em 0.65em 0.4em;
+  background: rgba(255, 251, 238, 0.6);
+  border: 1px solid rgba(125, 42, 36, 0.22);
+  border-radius: 0.5em;
+}
+.c3-lv {
+  display: block;
+  font-size: 0.6em;
+  letter-spacing: 2px;
+  color: #a37b22;
+}
+.c3-ft {
+  display: block;
+  font-family: var(--f-card);
+  font-weight: 600;
+  line-height: 1.75;
+}
+.c3-or {
+  font-size: 0.62em;
+  color: var(--ink-2);
+}
+.c3.stage {
+  font-size: 2.2vw;
+}
+.c3.stage .c3-face {
+  min-height: 21vw;
+}
+.c3.phone {
+  font-size: 21px;
+}
+.c3.phone .c3-face {
+  min-height: 250px;
+}
+.c3.host {
+  font-size: 15px;
+}
+.c3.wall {
+  font-size: 1.5vw;
+}
+.c3.wall .c3-back,
+.c3.wall .c3-edge {
+  display: none; /* the wall shows the questions only */
 }

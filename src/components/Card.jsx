@@ -1,4 +1,4 @@
-import { ALL_CARDS, FUNCTIONS } from '../lib/content.js';
+import { CARDS } from '../lib/content.js';
 
 export function Stars({ n, className = '' }) {
   return (
@@ -9,18 +9,52 @@ export function Stars({ n, className = '' }) {
   );
 }
 
-/** A starter card: type label, star rating and the starter with full harakat. */
-export default function Card({ id, size = 'md', className = '', children, ...rest }) {
-  const c = ALL_CARDS[id];
+/**
+ * A question card with real thickness that turns over in 3D.
+ * Front: the day's title, stars and the question. Back: the two answer frames (★ and ★★★).
+ * `id` is a card id (or pass `card` = { q, f1, f3, s }).
+ */
+export default function Card3D({ id, card: c0, title, flipped = false, size = 'md', footer, className = '', onClick, style }) {
+  const c = c0 || CARDS[id];
   if (!c) return null;
+  const Tag = onClick ? 'button' : 'div';
   return (
-    <div className={`card ${size} ${className}`} {...rest}>
-      <div className="card-top">
-        <span className={'card-type f-' + c.f}>{FUNCTIONS[c.f]}</span>
-        <Stars n={c.s} />
-      </div>
-      <div className="card-text">{c.t}</div>
-      {children}
-    </div>
+    <Tag
+      className={`c3 ${size} ${flipped ? 'flipped' : ''} ${className}`}
+      onClick={onClick}
+      style={style}
+      dir="rtl"
+      lang="ar"
+      type={onClick ? 'button' : undefined}
+    >
+      <span className="c3-in">
+        <span className="c3-face c3-front" aria-hidden={flipped}>
+          <span className="c3-top">
+            <span className="c3-title">{title}</span>
+            <Stars n={c.s} />
+          </span>
+          <span className="c3-q">{c.q}</span>
+          {footer && <span className="c3-foot">{footer}</span>}
+        </span>
+        <span className="c3-face c3-back" aria-hidden={!flipped}>
+          <span className="c3-frame">
+            <span className="c3-lv">★</span>
+            <span className="c3-ft">{c.f1}</span>
+          </span>
+          <span className="c3-or">أَوْ</span>
+          <span className="c3-frame">
+            <span className="c3-lv">★★★</span>
+            <span className="c3-ft">{c.f3}</span>
+          </span>
+        </span>
+        <span className="c3-edge l" />
+        <span className="c3-edge r" />
+      </span>
+    </Tag>
   );
+}
+
+/** A card lying face down: the Bourgoin star-panel back. */
+export function CardBack({ className = '', style }) {
+  return <span className={'cb ' + className} style={style} />;
 }

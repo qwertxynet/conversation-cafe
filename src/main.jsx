@@ -10,4 +10,9 @@ import '@fontsource/el-messiri/latin-700.css';
 import './styles.css';
 import App from './App.jsx';
 
+// image files in public/assets (credited in the README and the teacher window)
+const root = document.documentElement.style;
+root.setProperty('--img-table', `url(${import.meta.env.BASE_URL}assets/table.webp)`);
+root.setProperty('--img-back', `url(${import.meta.env.BASE_URL}assets/card-back.webp)`);
+
 createRoot(document.getElementById('root')).render(<App />);

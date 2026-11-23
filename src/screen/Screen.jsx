@@ -1,18 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import QRCode from 'qrcode';
-import Card, { Stars } from '../components/Card.jsx';
-import { DAYS, dayPlan } from '../lib/content.js';
-import { wallCards } from '../lib/game.js';
-import { mmss, toArabicDigits, useStored, useTick } from '../lib/store.js';
+import Card3D, { CardBack, Stars } from '../components/Card.jsx';
+import Emblem from '../components/Emblem.jsx';
+import { DAYS } from '../lib/content.js';
+import { askerOf, stackOf, wallCards } from '../lib/game.js';
+import { toArabicDigits, useStored } from '../lib/store.js';
 import './screen.css';
+import './table.css';
 
 export const joinUrl = (pin) => location.origin + location.pathname + '#/join/' + pin;
 
 /** The projector window: follows the teacher's control window (same browser, shared storage). */
 export default function Screen() {
-  const [game] = useStored('game', null);
+  const [stored] = useStored('game', null);
+  const game = stored?.v === 2 ? stored : null;
   const [select] = useStored('select', 1);
-  const [custom] = useStored('custom', {});
   const [hint, setHint] = useState(true);
 
   useEffect(() => {
@@ -32,15 +34,7 @@ export default function Screen() {
 
   return (
     <div className="scr" dir="rtl" lang="ar">
-      {!game ? (
-        <SongSelect selected={select} />
-      ) : game.phase === 'lobby' ? (
-        <Lobby game={game} />
-      ) : game.phase === 'question' ? (
-        <Question game={game} custom={custom} />
-      ) : (
-        <Wall game={game} />
-      )}
+      {!game ? <SongSelect selected={select} /> : game.phase === 'wall' ? <Wall game={game} /> : <TableView game={game} />}
       {hint && <p className="scr-hint ltr">Press F for full screen</p>}
     </div>
   );
@@ -85,94 +79,167 @@ function useQr(text) {
   return svg;
 }
 
-function Lobby({ game }) {
+/**
+ * Where each seat sits on the table (percent of the table top).
+ * Seats run in an arc from the right, round the near side, to the left, leaving the far side clear for the card.
+ */
+export function seatSpot(i, n, r = 1) {
+  const span = n >= 5 ? 248 : 224; // a wider arc when the table is full
+  const deg = n === 1 ? 90 : 90 - span / 2 + (i * span) / (n - 1);
+  const a = (deg * Math.PI) / 180;
+  return { x: 50 + 42 * r * Math.cos(a), y: 50 + 40 * r * Math.sin(a), deg };
+}
+const DECK = { x: 50, y: 34 };
+const fresh = (at, ms) => at && Date.now() - at < ms;
+
+function TableView({ game }) {
   const d = DAYS.find((x) => x.n === game.day);
-  const url = joinUrl(game.pin);
-  const svg = useQr(url);
-  const players = Object.entries(game.players).sort((a, b) => a[1].joinedAt - b[1].joinedAt);
+  const lobby = game.phase === 'lobby';
+  const t = lobby ? null : game.turn;
+  const asker = askerOf(game);
+  const n = game.order.length;
+  const idx = (tk) => game.order.indexOf(tk);
+  const name = (tk) => game.players[tk]?.name;
+  const showCard = t && t.card && (t.step === 'front' || t.step === 'back');
+  const sp = t ? idx(t.speaker) : -1;
+  const spot = sp >= 0 ? seatSpot(sp, n) : null;
+  const flying = showCard && t.step === 'front' && fresh(t.drawnAt, 1600);
+  const ls = game.lastSaid;
+  const settling = ls && fresh(ls.at, 1500) && idx(ls.token) >= 0 ? { ...ls, spot: seatSpot(idx(ls.token), n, 0.66) } : null;
+
   return (
-    <div className="lb">
-      <header className="lb-head">
+    <div className={'tv' + (n >= 5 ? ' many' : '')}>
+      <header className="tv-head">
         <span className="brand">مَقْهَى الْمُحَادَثَةِ</span>
-        <span>
+        {t && (
+          <div className="tv-banner" key={t.n + t.step}>
+            {t.step === 'ask' && asker ? (
+              <>
+                <span>سُؤَالٌ لِلْمُتَابَعَةِ</span>
+                <Emblem kind={game.players[asker]?.emblem} />
+                <b>{name(asker)}</b>
+                <span className="tv-arrow">←</span>
+                <Emblem kind={game.players[t.speaker]?.emblem} />
+                <b>{name(t.speaker)}</b>
+              </>
+            ) : (
+              <>
+                <Emblem kind={game.players[t.speaker]?.emblem} />
+                <span>
+                  دَوْرُ <b>{name(t.speaker)}</b>
+                </span>
+              </>
+            )}
+          </div>
+        )}
+        {!lobby && !t && <p className="tv-banner">فِي انْتِظَارِ اللَّاعِبِينَ…</p>}
+        <span className="tv-day">
           {dayLabel(d.n)} · {d.title} <Stars n={d.stars} />
         </span>
       </header>
-      <div className="lb-main">
-        <div className="lb-join panel">
-          <div className="lb-qr" dangerouslySetInnerHTML={{ __html: svg }} />
-          <div>
-            <p className="lb-say">اِمْسَحُوا الرَّمْزَ، أَوِ افْتَحُوا الْمَوْقِعَ وَاكْتُبُوا الرَّقْمَ:</p>
-            <div className="lb-pin ltr">{game.pin}</div>
-            <p className="lb-url ltr">{url.replace(/^https?:\/\//, '')}</p>
+
+      {/* the table: a lamp-lit wooden top seen in perspective */}
+      <div className="tv-scene">
+        <div className="tv-table">
+          <div className="tv-floor" />
+          {Array.from({ length: 9 }, (_, i) => (
+            <div key={i} className="tv-thick" style={{ transform: `translateZ(${-3 - i * 3}px)` }} />
+          ))}
+          <div className="tv-top">
+            <div className="tv-lamp" />
+            {spot && <div className="tv-glow" style={{ left: spot.x + '%', top: spot.y + '%' }} key={'g' + t.n} />}
+            <Deck count={game.deck.length} />
+            {game.order.map((tk, i) => {
+              const s = seatSpot(i, n, 0.66);
+              const k = stackOf(game, tk) - (settling && settling.token === tk ? 1 : 0);
+              return <Stack key={tk} count={k} x={s.x} y={s.y} deg={s.deg} />;
+            })}
+            {flying && spot && <FlyCard key={'f' + t.n} to={seatSpot(sp, n, 0.66)} />}
+            {settling && <SettleCard key={'s' + settling.n} spot={settling.spot} />}
+            {game.order.map((tk, i) => {
+              const s = seatSpot(i, n);
+              const p = game.players[tk];
+              const role = t?.speaker === tk ? 'speaker' : asker === tk && t ? 'asker' : '';
+              return (
+                <div key={tk} className={'tv-seat ' + role} style={{ left: s.x + '%', top: s.y + '%' }}>
+                  <div className="tv-seat-in">
+                    {role === 'asker' && <span className="tv-ask">يَسْأَلُ</span>}
+                    <Emblem kind={p.emblem} />
+                    <span className="tv-name">
+                      {p.name}
+                      {p.test && <small> · تَجْرِبَةٌ</small>}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-        <div className="lb-players">
-          {players.length === 0 && <p className="muted lb-wait">فِي انْتِظَارِ اللَّاعِبِينَ…</p>}
-          {players.map(([token, p]) => (
-            <div key={token} className={'lb-player' + (p.test ? ' test' : '')}>
-              <div className="ring circle-ring" />
-              <span className="lb-avatar">{p.name.trim()[0]}</span>
-              <span className="lb-name">{p.name}</span>
-              {p.test && <span className="lb-tag">تَجْرِبَةٌ</span>}
-            </div>
-          ))}
-        </div>
       </div>
+
+      {lobby && <LobbyCard game={game} />}
+      {showCard && (
+        <div className={'tv-stage' + (flying ? ' late' : '')} key={'c' + t.n} style={{ '--from-x': (spot.x - 50) * 0.8 + 'vw' }}>
+          <Card3D id={t.card} title={d.title} flipped={t.step === 'back'} size="stage" footer={<>{name(t.speaker)}</>} />
+        </div>
+      )}
     </div>
   );
 }
 
-function Question({ game, custom }) {
-  useTick(true, 500);
-  const plan = useMemo(() => dayPlan(game.day, custom), [game.day, custom]);
-  const q = plan.questions[game.q];
-  const d = plan.day;
-  const elapsed = game.qAt ? (Date.now() - game.qAt) / 1000 : 0;
-  const recent = game.plays.slice(-6);
-  const last = game.plays[game.plays.length - 1];
-  const pop = last && Date.now() - last.at < 4000 ? last : null;
+function Deck({ count }) {
+  const layers = Math.min(count, 16);
   return (
-    <div className="qs">
-      <header className="qs-head">
-        <span className="brand">مَقْهَى الْمُحَادَثَةِ</span>
-        <span className="qs-day">
-          {dayLabel(d.n)} · {d.title} <Stars n={d.stars} />
-        </span>
-        <span className="qs-clock" title="منذ بداية السؤال">
-          ⏱ {toArabicDigits(mmss(elapsed))}
-        </span>
-      </header>
-      <main className="qs-main">
-        <p className="qs-n">
-          السُّؤَالُ {toArabicDigits(game.q + 1)} مِنْ {toArabicDigits(plan.questions.length)}
-        </p>
-        <h1 className="qs-q" key={game.q}>
-          {q?.q}
-        </h1>
-      </main>
-      <footer className="qs-recent">
-        {recent.map((p) => (
-          <div key={p.at + p.id} className="qs-play">
-            <Card id={p.id} size="sm" />
-            <span className="qs-who">
-              {p.name}
-              {p.test ? ' · تَجْرِبَةٌ' : ''}
-            </span>
-          </div>
-        ))}
-      </footer>
-      {pop && (
-        <div className="pop" key={pop.at}>
-          <Card id={pop.id} size="lg">
-            <div className="ring" />
-          </Card>
-          <div className="pop-who">
-            {pop.name}
-            {pop.test ? ' · تَجْرِبَةٌ' : ''}
-          </div>
-        </div>
-      )}
+    <div className="tv-deck" style={{ left: DECK.x + '%', top: DECK.y + '%' }}>
+      {count === 0 && <span className="tv-deck-empty" />}
+      {Array.from({ length: layers }, (_, i) => (
+        <CardBack key={i} style={{ transform: `translateZ(${i * 2}px) rotate(${(i % 3) - 1}deg)` }} />
+      ))}
+    </div>
+  );
+}
+
+function Stack({ count, x, y, deg }) {
+  if (count <= 0) return null;
+  return (
+    <div className="tv-stack" style={{ left: x + '%', top: y + '%', '--r': deg - 90 + 'deg' }}>
+      {Array.from({ length: Math.min(count, 10) }, (_, i) => (
+        <CardBack key={i} style={{ transform: `translateZ(${i * 2}px) rotate(${((i * 37) % 11) - 5}deg)` }} />
+      ))}
+    </div>
+  );
+}
+
+/** The drawn card slides off the deck towards the speaker, then lifts away (the big card takes over). */
+function FlyCard({ to }) {
+  return (
+    <div className="tv-fly" style={{ '--x0': DECK.x + '%', '--y0': DECK.y + '%', '--x1': to.x + '%', '--y1': to.y + '%' }}>
+      <CardBack />
+    </div>
+  );
+}
+
+/** After the answer, the card drops onto the speaker's stack. */
+function SettleCard({ spot }) {
+  return (
+    <div className="tv-settle" style={{ left: spot.x + '%', top: spot.y + '%', '--r': spot.deg - 90 + 'deg' }}>
+      <CardBack />
+    </div>
+  );
+}
+
+function LobbyCard({ game }) {
+  const url = joinUrl(game.pin);
+  const svg = useQr(url);
+  return (
+    <div className="tv-lobby panel">
+      <div className="lb-qr" dangerouslySetInnerHTML={{ __html: svg }} />
+      <div>
+        <p className="lb-say">اِمْسَحُوا الرَّمْزَ، أَوِ افْتَحُوا الْمَوْقِعَ وَاكْتُبُوا الرَّقْمَ:</p>
+        <div className="lb-pin ltr">{game.pin}</div>
+        <p className="lb-url ltr">{url.replace(/^https?:\/\//, '')}</p>
+        {game.order.length === 0 && <p className="muted lb-wait">فِي انْتِظَارِ اللَّاعِبِينَ…</p>}
+      </div>
     </div>
   );
 }
@@ -182,19 +249,26 @@ function Wall({ game }) {
   const ids = wallCards(game);
   return (
     <div className="wl">
-      <header className="lb-head">
+      <header className="tv-head">
         <span className="brand">مَقْهَى الْمُحَادَثَةِ</span>
-        <span>
+        <span className="tv-day">
           {dayLabel(d.n)} · {d.title}
         </span>
       </header>
-      <h1 className="wl-title">بِطَاقَاتُ الْيَوْمِ</h1>
+      <h1 className="wl-title">أَسْئِلَةُ الْيَوْمِ</h1>
       {ids.length === 0 ? (
-        <p className="muted wl-none">لَمْ تُسْتَعْمَلْ بِطَاقَاتٌ الْيَوْمَ.</p>
+        <p className="muted wl-none">لَمْ نُجِبْ عَنْ أَيِّ سُؤَالٍ الْيَوْمَ.</p>
       ) : (
-        <div className="wl-grid">
+        <div className={'wl-grid' + (ids.length > 9 ? ' many' : '')}>
           {ids.map((id, i) => (
-            <Card key={id} id={id} size="sm" className="wl-card" style={{ animationDelay: Math.min(i * 60, 2400) + 'ms' }} />
+            <Card3D
+              key={id}
+              id={id}
+              title={d.title}
+              size="wall"
+              className="wl-card"
+              style={{ animationDelay: Math.min(i * 90, 2400) + 'ms', '--tilt': ((i * 7) % 5) - 2 + 'deg' }}
+            />
           ))}
         </div>
       )}

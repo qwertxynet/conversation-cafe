@@ -1,21 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
-import Card from '../components/Card.jsx';
+import Card3D, { CardBack } from '../components/Card.jsx';
+import Emblem, { EMBLEM_AR } from '../components/Emblem.jsx';
 import { connectClient } from '../lib/net.js';
-import { validName, cleanName } from '../lib/game.js';
+import { EMBLEMS, validName, cleanName } from '../lib/game.js';
 import { store, toArabicDigits } from '../lib/store.js';
 import './phone.css';
 
 const REASONS = {
   name: 'اُكْتُبِ اسْمَكَ بِالْحُرُوفِ الْعَرَبِيَّةِ (حَرْفَانِ عَلَى الْأَقَلِّ).',
   taken: 'هَذَا الِاسْمُ مُسْتَعْمَلٌ. اِخْتَرِ اسْمًا آخَرَ.',
-  full: 'اللُّعْبَةُ مُمْتَلِئَةٌ.',
-  ended: 'انْتَهَتْ هَذِهِ اللُّعْبَةُ.',
-  'no-host': 'لَا تُوجَدُ لُعْبَةٌ بِهَذَا الرَّقْمِ الْآنَ.',
+  full: 'الطَّاوِلَةُ مُمْتَلِئَةٌ.',
+  ended: 'انْتَهَتْ هَذِهِ الْجَلْسَةُ.',
+  'no-host': 'لَا تُوجَدُ جَلْسَةٌ بِهَذَا الرَّقْمِ الْآنَ.',
 };
 const keyFor = (pin, test) => 'p-' + pin + (test ? '-test' : '');
 const randomToken = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-/** Students' phones: join with PIN + Arabic nickname, then see the question and their 5 cards. */
+/** "Your turn in N", with the counted noun in the right form (N is at most 5). */
+function untilText(n) {
+  if (n === 0) return 'دَوْرُكَ!';
+  if (n === 1) return 'أَنْتَ التَّالِي';
+  if (n === 2) return 'دَوْرُكَ بَعْدَ دَوْرَيْنِ';
+  return `دَوْرُكَ بَعْدَ ${toArabicDigits(n)} أَدْوَارٍ`;
+}
+
+/** Students' phones: join with the PIN, an Arabic nickname and an emblem, then follow the turns round the table. */
 export default function Phone({ pin: routePin = '', test = false }) {
   const [pin, setPin] = useState(routePin);
   const [rec, setRec] = useState(() => (routePin ? store.get(keyFor(routePin, test), null) : null));
@@ -23,7 +32,7 @@ export default function Phone({ pin: routePin = '', test = false }) {
 
   useEffect(() => {
     if (test && routePin && !rec) {
-      // the teacher's test player joins straight away
+      // the teacher's test player skips the nickname
       const r = { token: randomToken(), name: 'الْمُعَلِّمُ' };
       store.set(keyFor(routePin, true), r);
       setRec(r);
@@ -62,7 +71,7 @@ function JoinForm({ pin: pin0, error, onJoin }) {
   const submit = (e) => {
     e.preventDefault();
     const p = (pin || '').replace(/[٠-٩]/g, (d) => '٠١٢٣٤٥٦٧٨٩'.indexOf(d)).trim();
-    if (!/^\d{4}$/.test(p)) return setErr('اُكْتُبْ رَقْمَ اللُّعْبَةِ: أَرْبَعَةُ أَرْقَامٍ.');
+    if (!/^\d{4}$/.test(p)) return setErr('اُكْتُبْ رَقْمَ الْجَلْسَةِ: أَرْبَعَةُ أَرْقَامٍ.');
     const n = cleanName(name);
     if (!validName(n)) return setErr(REASONS.name);
     onJoin(p, n);
@@ -72,7 +81,7 @@ function JoinForm({ pin: pin0, error, onJoin }) {
       <h1 className="brand ph-brand">مَقْهَى الْمُحَادَثَةِ</h1>
       <form className="ph-form panel" onSubmit={submit}>
         <label>
-          رَقْمُ اللُّعْبَةِ
+          رَقْمُ الْجَلْسَةِ
           <input className="ph-pin ltr" inputMode="numeric" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value)} autoComplete="off" />
         </label>
         <label>
@@ -86,33 +95,56 @@ function JoinForm({ pin: pin0, error, onJoin }) {
   );
 }
 
-function Play({ pin, rec, test, onLeave }) {
+function Play({ pin, rec: rec0, test, onLeave }) {
+  const [rec, setRec] = useState(rec0);
   const [status, setStatus] = useState('connecting');
   const [joined, setJoined] = useState(false);
   const [s, setS] = useState(null); // last sync from the host
-  const [open, setOpen] = useState(null); // card being looked at
-  const [leaving, setLeaving] = useState(null);
+  const [pick, setPick] = useState(null); // { taken, again } while choosing an emblem
+  const [pending, setPending] = useState(false); // a tap is on its way
+  const [peek, setPeek] = useState(false); // the speaker turned their card back to the question
   const [noHostCount, setNoHostCount] = useState(0);
   const client = useRef(null);
+  const recRef = useRef(rec);
+  recRef.current = rec;
   const everJoined = useRef(false);
+  const lastSync = useRef(null);
 
   useEffect(() => {
+    const hello = () => {
+      const r = recRef.current;
+      c.send({ type: 'hello', token: r.token, name: r.name, emblem: r.emblem, test });
+    };
     const c = connectClient(pin, {
-      onOpen: () => c.send({ type: 'hello', token: rec.token, name: rec.name, test }),
+      onOpen: hello,
       onStatus: (st) => {
         setStatus(st);
         if (st === 'no-host' && !everJoined.current) setNoHostCount((n) => n + 1);
       },
       onMessage: (m) => {
         if (!m || typeof m !== 'object') return;
-        if (m.type === 'welcome') {
+        if (m.type === 'pick') {
+          everJoined.current = true;
+          setPick({ taken: m.taken || [], again: !!m.again });
+        } else if (m.type === 'welcome') {
           everJoined.current = true;
           setJoined(true);
+          setPick(null);
+          if (m.emblem && m.emblem !== recRef.current.emblem) {
+            const r = { ...recRef.current, emblem: m.emblem };
+            store.set(keyFor(pin, test), r);
+            setRec(r);
+          }
         } else if (m.type === 'sync') {
           everJoined.current = true;
           setJoined(true);
+          setPick(null);
+          setPending(false);
+          const prev = lastSync.current;
+          if (m.turn?.mine && m.turn.step === 'draw' && !(prev?.turn?.mine && prev.turn.n === m.turn.n)) navigator.vibrate?.([120, 60, 120]);
+          if (prev?.turn?.n !== m.turn?.n || prev?.turn?.step !== m.turn?.step) setPeek(false);
+          lastSync.current = m;
           setS(m);
-          setLeaving(null);
         } else if (m.type === 'reject') {
           c.close();
           onLeave(m.reason);
@@ -128,7 +160,7 @@ function Play({ pin, rec, test, onLeave }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pin, rec.token]);
 
-  // never joined and no game at this PIN: back to the form
+  // never joined and no session at this PIN: back to the form
   useEffect(() => {
     if (noHostCount >= 2 && !everJoined.current) {
       client.current?.close();
@@ -136,15 +168,17 @@ function Play({ pin, rec, test, onLeave }) {
     }
   }, [noHostCount, onLeave]);
 
-  const online = status === 'open' && joined;
-  const usable = online && s?.phase === 'question';
-
-  const use = (id) => {
-    if (!usable) return;
-    if (client.current?.send({ type: 'play', token: rec.token, id })) {
-      setLeaving(id);
-      setOpen(null);
-    }
+  const online = status === 'open' && (joined || !!pick);
+  const send = (act) => {
+    if (pending || !s?.turn) return;
+    if (client.current?.send({ type: 'act', token: rec.token, act, n: s.turn.n })) setPending(true);
+  };
+  const choose = (emblem) => {
+    const r = { ...rec, emblem };
+    store.set(keyFor(pin, test), r);
+    setRec(r);
+    recRef.current = r;
+    client.current?.send({ type: 'hello', token: r.token, name: r.name, emblem, test });
   };
 
   if (s?.phase === 'ended')
@@ -155,63 +189,197 @@ function Play({ pin, rec, test, onLeave }) {
       </div>
     );
 
+  const me = s?.me || (rec.emblem ? { name: rec.name, emblem: rec.emblem } : { name: rec.name });
+
   return (
     <div className="ph" dir="rtl" lang="ar">
       <header className="ph-head">
         <span className="ph-me">
-          <span className={'dot ' + (online ? 'on' : status === 'connecting' ? 'warn' : 'bad')} />
-          {rec.name}
+          {me.emblem && <Emblem kind={me.emblem} />}
+          {me.name}
           {test && <span className="muted"> · تَجْرِبَةٌ</span>}
         </span>
-        <span className="muted ltr">{toArabicDigits(pin)}</span>
+        <span className="ph-pinbox">
+          <span className={'dot ' + (online ? 'on' : status === 'connecting' ? 'warn' : 'bad')} />
+          <span className="muted ltr">{toArabicDigits(pin)}</span>
+        </span>
       </header>
 
       {!online && <p className="ph-status">{joined ? 'انْقَطَعَ الِاتِّصَالُ… نُحَاوِلُ مِنْ جَدِيدٍ' : 'جَارٍ الِاتِّصَالُ…'}</p>}
 
-      {s && (
-        <>
-          <section className="ph-q">
-            {s.phase === 'lobby' && <p className="ph-wait">أَنْتَ فِي اللُّعْبَةِ! انْتَظِرْ حَتَّى يَبْدَأَ الْمُعَلِّمُ. هَذِهِ بِطَاقَاتُكَ:</p>}
-            {s.phase === 'question' && (
-              <>
-                <p className="muted ph-qn">
-                  السُّؤَالُ {toArabicDigits(s.qn)} مِنْ {toArabicDigits(s.qTotal)}
-                </p>
-                <p className="ph-qt">{s.question}</p>
-              </>
-            )}
-            {s.phase === 'wall' && <p className="ph-wait">شُكْرًا! اُنْظُرُوا إِلَى الشَّاشَةِ.</p>}
-          </section>
+      {pick && !joined && <EmblemPicker taken={pick.taken} again={pick.again} onPick={choose} />}
 
-          {s.phase !== 'wall' && (
-            <section className="ph-hand">
-              {s.hand.map((id) => (
-                <button key={id} className={'ph-cardbtn' + (leaving === id ? ' leaving' : '')} onClick={() => setOpen(id)} aria-label="افتح البطاقة">
-                  <Card id={id} size="md" />
-                </button>
-              ))}
+      {s && joined && (
+        <>
+          <Seats seats={s.seats} />
+          {s.phase === 'lobby' && (
+            <section className="ph-msg">
+              <p className="ph-big">أَنْتَ عَلَى الطَّاوِلَةِ!</p>
+              <p>اِنْتَظِرْ حَتَّى يَبْدَأَ الْمُعَلِّمُ.</p>
             </section>
           )}
+          {s.phase === 'wall' && (
+            <section className="ph-msg">
+              <p className="ph-big">شُكْرًا!</p>
+              <p>اُنْظُرُوا إِلَى الشَّاشَةِ.</p>
+            </section>
+          )}
+          {s.phase === 'table' && <Turn s={s} send={send} pending={pending || !online} peek={peek} setPeek={setPeek} />}
         </>
       )}
+    </div>
+  );
+}
 
-      {open && (
-        <div className="ph-modal" role="dialog" aria-modal="true" onClick={() => setOpen(null)}>
-          <div className="ph-modal-in" onClick={(e) => e.stopPropagation()}>
-            <Card id={open} size="lg" />
-            {usable ? (
-              <button className="btn primary ph-use" onClick={() => use(open)}>
-                اِسْتَعْمَلْتُهَا ✓
-              </button>
-            ) : (
-              <p className="muted">{s?.phase === 'lobby' ? 'تَبْدَأُ اللُّعْبَةُ بَعْدَ قَلِيلٍ.' : 'انْتَظِرِ الِاتِّصَالَ…'}</p>
-            )}
-            <button className="btn ghost" onClick={() => setOpen(null)}>
-              رُجُوعٌ
+function EmblemPicker({ taken, again, onPick }) {
+  return (
+    <section className="ph-pick">
+      <h2>اِخْتَرْ رَمْزَكَ</h2>
+      {again && <p className="err">أَخَذَ طَالِبٌ آخَرُ هَذَا الرَّمْزَ. اِخْتَرْ رَمْزًا آخَرَ.</p>}
+      <div className="ph-pickgrid">
+        {EMBLEMS.map((e) => {
+          const off = taken.includes(e);
+          return (
+            <button key={e} className="ph-pickbtn" disabled={off} onClick={() => onPick(e)}>
+              <Emblem kind={e} />
+              <span>{EMBLEM_AR[e]}</span>
             </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+/** Everyone at the table, in seat order: the speaker glows, the asker is marked. */
+function Seats({ seats }) {
+  return (
+    <ol className="ph-seats">
+      {seats.map((p, i) => (
+        <li key={i} className={(p.speaker ? 'speaker ' : '') + (p.asker ? 'asker ' : '') + (p.me ? 'me' : '')}>
+          <Emblem kind={p.emblem} />
+          <span className="ph-seatname">{p.name}</span>
+          {p.asker && <span className="ph-seattag">يَسْأَلُ</span>}
+          {p.stack > 0 && (
+            <span className="ph-minis" aria-hidden="true">
+              {Array.from({ length: Math.min(p.stack, 6) }, (_, k) => (
+                <CardBack key={k} />
+              ))}
+            </span>
+          )}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Turn({ s, send, pending, peek, setPeek }) {
+  const t = s.turn;
+  if (!t) return <p className="ph-msg">فِي انْتِظَارِ اللَّاعِبِينَ…</p>;
+  const sp = t.speaker;
+
+  // ───── my turn ─────
+  if (t.mine) {
+    if (t.step === 'draw')
+      return (
+        <section className="ph-turn mine">
+          <p className="ph-yours">دَوْرُكَ!</p>
+          <div className="ph-deck">
+            <CardBack />
+            <CardBack />
+            <CardBack />
           </div>
+          {s.deckLeft > 0 ? (
+            <button className="btn primary ph-act" onClick={() => send('draw')} disabled={pending}>
+              اِسْحَبْ بِطَاقَةً
+            </button>
+          ) : (
+            <p className="muted">انْتَهَتِ الْبِطَاقَاتُ. اِنْتَظِرِ الْمُعَلِّمَ.</p>
+          )}
+        </section>
+      );
+    if (t.step === 'front' || t.step === 'back') {
+      const back = t.step === 'back' && !peek;
+      return (
+        <section className="ph-turn mine">
+          <p className="ph-hint">{t.step === 'front' ? 'اِقْرَأِ السُّؤَالَ بِصَوْتٍ عَالٍ، ثُمَّ اقْلِبِ الْبِطَاقَةَ.' : 'اِخْتَرْ إِطَارًا، وَقُلِ الْجُمْلَةَ كَامِلَةً بِصَوْتٍ عَالٍ.'}</p>
+          <Card3D
+            card={t.card}
+            title={s.title}
+            flipped={back}
+            size="phone"
+            className="ph-card deal"
+            onClick={() => (t.step === 'front' ? send('flip') : setPeek(!peek))}
+          />
+          {t.step === 'front' ? (
+            <button className="btn primary ph-act" onClick={() => send('flip')} disabled={pending}>
+              اِقْلِبِ الْبِطَاقَةَ
+            </button>
+          ) : (
+            <>
+              <button className="btn primary ph-act" onClick={() => send('said')} disabled={pending}>
+                قُلْتُهَا ✓
+              </button>
+              <p className="muted ph-small">{peek ? 'اِضْغَطْ عَلَى الْبِطَاقَةِ لِتَرَى الْإِطَارَيْنِ.' : 'اِضْغَطْ عَلَى الْبِطَاقَةِ لِتَرَى السُّؤَالَ.'}</p>
+            </>
+          )}
+        </section>
+      );
+    }
+    if (t.step === 'ask')
+      return (
+        <section className="ph-turn">
+          <p className="ph-big">أَحْسَنْتَ!</p>
+          <p>
+            اِسْتَمِعْ إِلَى سُؤَالِ <b>{t.asker?.name}</b>.
+          </p>
+        </section>
+      );
+  }
+
+  // ───── I ask the follow-up ─────
+  if (t.asking && t.step === 'ask')
+    return (
+      <section className="ph-turn mine">
+        <p className="ph-yours small">
+          اِسْأَلْ <b>{sp.name}</b> سُؤَالًا لِلْمُتَابَعَةِ:
+        </p>
+        <ul className="ph-fu">
+          {t.fu.map((f, i) => (
+            <li key={i} style={{ animationDelay: i * 120 + 'ms' }}>
+              {f}
+            </li>
+          ))}
+        </ul>
+        <button className="btn primary ph-act" onClick={() => send('asked')} disabled={pending}>
+          سَأَلْتُ ✓
+        </button>
+      </section>
+    );
+
+  // ───── watching someone else's turn ─────
+  return (
+    <section className="ph-turn">
+      <p className="ph-until">{untilText(s.until)}</p>
+      <p className="ph-who">
+        <Emblem kind={sp.emblem} />
+        <span>
+          دَوْرُ <b>{sp.name}</b>
+        </span>
+      </p>
+      {t.card ? (
+        <Card3D card={t.card} title={s.title} flipped={t.step !== 'front'} size="phone" className="ph-card watch" />
+      ) : (
+        <div className="ph-deck small">
+          <CardBack />
+          <CardBack />
         </div>
       )}
-    </div>
+      {t.step === 'ask' && t.asker && (
+        <p className="ph-hint">
+          <b>{t.asker.name}</b> · يَسْأَلُ سُؤَالًا لِلْمُتَابَعَةِ
+        </p>
+      )}
+    </section>
   );
 }

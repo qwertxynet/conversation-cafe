@@ -84,7 +84,16 @@ export const audio = {
     } else if (kind === 'play') {
       [HIJAZ[0], HIJAZ[2], HIJAZ[4]].forEach((f, i) => pluck(f, t + i * 0.035, 0.45, sfxBus, 1.3));
       bell(HIJAZ[7] * 2, t + 0.12, 0.18);
-    } else if (kind === 'next') {
+    } else if (kind === 'deal') {
+      // a card sliding off the deck
+      swish(t, 0.28, 2600, 700, 0.5);
+      pluck(HIJAZ[0], t + 0.2, 0.25, sfxBus, 0.6);
+    } else if (kind === 'flip') {
+      // a card turning over: a quick brush and a soft snap
+      swish(t, 0.14, 3800, 1500, 0.4);
+      swish(t + 0.12, 0.05, 2400, 2000, 0.35);
+      bell(HIJAZ[4] * 2, t + 0.14, 0.08);
+    } else if (kind === 'next' || kind === 'pass') {
       pluck(HIJAZ[3], t, 0.4, sfxBus, 0.8);
       pluck(HIJAZ[4], t + 0.1, 0.4, sfxBus, 0.8);
       pluck(HIJAZ[7], t + 0.2, 0.45, sfxBus, 1.2);
@@ -116,6 +125,29 @@ function pluck(freq, t, gain = 0.35, bus = musicBus, decay = 0.9) {
   o2.start(t);
   o1.stop(t + decay + 0.05);
   o2.stop(t + decay + 0.05);
+}
+
+let swishBuf = null;
+function swish(t, dur, from, to, gain) {
+  if (!swishBuf) {
+    swishBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const d = swishBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  }
+  const src = ctx.createBufferSource();
+  src.buffer = swishBuf;
+  const f = ctx.createBiquadFilter();
+  f.type = 'bandpass';
+  f.Q.value = 1.2;
+  f.frequency.setValueAtTime(from, t);
+  f.frequency.exponentialRampToValueAtTime(to, t + dur);
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(gain, t + dur * 0.25);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f).connect(g).connect(sfxBus);
+  src.start(t, Math.random() * 0.5);
+  src.stop(t + dur + 0.02);
 }
 
 function bell(freq, t, gain) {

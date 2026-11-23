@@ -1,10 +1,11 @@
-// Quick checks of the game rules: run with `npx vite-node scripts/check-game.mjs`
+// Quick checks of the turn rules and the content: run with `npx vite-node scripts/check-game.mjs`
 globalThis.window = { dispatchEvent() {} };
 globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
 globalThis.CustomEvent = class {};
 
-const { join, play, goQuestion, newGame, validName, removePlayer, wallCards, MAX_PLAYERS } = await import('../src/lib/game.js');
-const { dayPlan, ALL_CARDS, DAYS } = await import('../src/lib/content.js');
+const G = await import('../src/lib/game.js');
+const { CARDS, DAYS, FOLLOWUPS, dayPlan, defaultOrder } = await import('../src/lib/content.js');
+const { newGame, join, start, act, skip, reshuffle, removePlayer, askerOf, untilTurn, wallCards, stackOf, validName, MAX_PLAYERS } = G;
 
 let fails = 0;
 const ok = (cond, msg) => {
@@ -12,73 +13,101 @@ const ok = (cond, msg) => {
   console.log((cond ? '  ok   ' : '  FAIL ') + msg);
 };
 
-// content
-ok(Object.keys(ALL_CARDS).length === 100, '100 cards in total (40 shared + 60 daily)');
+// ───── content ─────
+ok(Object.keys(CARDS).length === 80, '80 question cards (16 per day)');
+ok(FOLLOWUPS.length >= 8, `${FOLLOWUPS.length} follow-up starters`);
+const HARAKA = /[ً-ْ]/;
+ok(
+  Object.values(CARDS).every((c) => c.q && c.f1 && c.f3 && c.a && c.s >= 1 && c.s <= 5 && HARAKA.test(c.q) && HARAKA.test(c.f1) && HARAKA.test(c.f3)),
+  'every card has a vowelled question, two vowelled frames, a model answer and 1–5 stars',
+);
 for (const d of DAYS) {
-  const p = dayPlan(d.n, {});
-  ok(p.pool.length === 52 && p.questions.length === 8, `day ${d.n}: 52 cards, 8 questions`);
+  const order = defaultOrder(d.n);
+  const stars = order.map((id) => CARDS[id].s);
+  ok(order.length === 16 && stars.every((s, i) => i === 0 || stars[i - 1] <= s), `day ${d.n}: 16 cards, drawn easy to hard`);
 }
-ok(Object.values(ALL_CARDS).every((c) => c.s >= 1 && c.s <= 5 && ['opinion', 'agree', 'ask', 'compare'].includes(c.f)), 'every card has 1–5 stars and a known function');
+const plan1 = dayPlan(1, { days: { 1: { hidden: ['d1-0'] } }, fuHidden: [0, 1] });
+ok(plan1.cards.length === 15 && !plan1.cards.includes('d1-0') && !plan1.followups.includes(0), 'hidden cards and follow-ups are left out');
+const rev = [...defaultOrder(2)].reverse();
+ok(dayPlan(2, { days: { 2: { order: rev } } }).cards[0] === rev[0], 'your card order is used');
+ok(dayPlan(2, { days: { 2: { order: ['d2-0'] } } }).cards.length === 16, 'a broken saved order falls back to easy to hard');
 
-// names
+// ───── names and joining ─────
 ok(validName('سارة') && validName('عبد الله') && validName('سَارَة'), 'Arabic names accepted (with spaces and harakat)');
-ok(!validName('Sara') && !validName('س') && !validName('سارة1') && !validName('   '), 'English, one-letter, digits and blank names refused');
-
-// joining
+ok(!validName('Sara') && !validName('س') && !validName('سارة1'), 'English, one-letter and digit names refused');
 const plan = dayPlan(1, {});
-let g = newGame(1, plan.pool, '1234');
-let r = join(g, 'a', 'سارة');
+const FU = plan.followups;
+let g = newGame(1, plan.cards, '1234');
+let r = join(g, 'a', 'سارة', 'cup');
 g = r.g;
-ok(!r.error && g.players.a.hand.length === 5, 'first player gets 5 cards');
-r = join(g, 'b', 'سارة');
-ok(r.error === 'taken', 'same name refused (taken)');
-r = join(g, 'a', 'سارة');
-ok(r.g === g, 'same token rejoins with the same state');
-for (let i = 0; i < MAX_PLAYERS - 1; i++) g = join(g, 'p' + i, 'لاعب ' + 'أبتثجح'[i]).g;
-ok(Object.keys(g.players).length === MAX_PLAYERS, `${MAX_PLAYERS} players fit`);
-r = join(g, 'x', 'زائد');
-ok(r.error === 'full', 'a 7th player is refused (full)');
-const fnCounts = Object.values(g.players).map((p) => {
-  const c = {};
-  p.hand.forEach((id) => (c[ALL_CARDS[id].f] = (c[ALL_CARDS[id].f] || 0) + 1));
-  return Math.max(...Object.values(c));
-});
-ok(fnCounts.every((m) => m <= 3), 'starting hands mix the four functions (no more than 3 of one)');
+ok(!r.error && g.order[0] === 'a', 'first student takes seat 1');
+ok(join(g, 'b', 'سارة', 'book').error === 'taken', 'same nickname refused');
+ok(join(g, 'b', 'خالد', 'cup').error === 'emblem-taken', 'same emblem refused');
+ok(join(g, 'b', 'خالد', 'banana').error === 'emblem', 'unknown emblem refused');
+ok(join(g, 'a', 'سارة', 'cup').g === g, 'same token rejoins with the same seat');
+g = join(g, 'b', 'خالد', 'book').g;
+g = join(g, 'c', 'ليلى', 'lantern').g;
+g = join(g, 'd', 'عمر', 'palm').g;
+ok(start(newGame(1, plan.cards, '1')).phase === 'lobby', 'cannot start with nobody seated');
 
-// playing
-ok(play(g, 'a', g.players.a.hand[0]).ok === false, 'no playing in the lobby');
-g = goQuestion(g, 0, 8);
-const first = g.players.a.hand[0];
-r = play(g, 'a', first);
-ok(r.ok && !r.g.players.a.hand.includes(first) && r.g.players.a.hand.length === 5, 'playing a card replaces it (hand stays at 5)');
-ok(play(r.g, 'a', first).ok === false, 'cannot play a card you no longer hold');
+// ───── a turn ─────
+g = start(g);
+ok(g.phase === 'table' && g.turn.speaker === 'a' && g.turn.step === 'draw', 'first joiner has the first turn');
+ok(askerOf(g) === 'b', 'the next seat asks the follow-up');
+ok(untilTurn(g, 'a') === 0 && untilTurn(g, 'b') === 1 && untilTurn(g, 'd') === 3, '"your turn in N" counts seats');
+ok(!act(g, 'b', 'draw', null, FU).ok, 'only the speaker (or teacher) can draw');
+ok(!act(g, 'a', 'flip', null, FU).ok, 'cannot flip before drawing');
+r = act(g, 'a', 'draw', g.turn.n, FU);
+ok(r.ok && r.g.turn.card === plan.cards[0] && r.g.deck.length === 15, 'drawing takes the top card');
 g = r.g;
+ok(!act(g, 'a', 'said', null, FU).ok, '«قُلْتُهَا» only after the flip');
+ok(!act(g, 'a', 'draw', g.turn.n, FU).ok, 'a double tap does not draw twice');
+g = act(g, 'a', 'flip', null, FU).g;
+ok(g.turn.step === 'back', 'flip shows the frames');
+g = act(g, 'a', 'said', null, FU).g;
+ok(
+  g.turn.step === 'ask' && g.turn.asker === 'b' && g.turn.fu.length === 3 && g.turn.fu.every((i) => FU.includes(i)),
+  'after the answer, the asker gets 3 follow-up starters',
+);
+ok(!act(g, 'c', 'asked', null, FU).ok, 'only the asker (or teacher) can confirm the follow-up');
+const stale = g.turn.n;
+g = act(g, 'b', 'asked', null, FU).g;
+ok(g.turn.speaker === 'b' && g.turn.step === 'draw' && g.turns.length === 1, "the asker's own turn starts");
+ok(!act(g, 'b', 'draw', stale, FU).ok, 'a tap from the old turn is ignored');
+ok(stackOf(g, 'a') === 1, "the answered card stays by the speaker's seat");
 
-// many plays: the deck reshuffles and no card is ever in two places
-for (let i = 0; i < 300; i++) {
-  const tk = Object.keys(g.players)[i % 6];
-  g = play(g, tk, g.players[tk].hand[i % 5]).g;
-}
-const inHands = Object.values(g.players).flatMap((p) => p.hand);
-const all = [...inHands, ...g.deck, ...g.discard];
-ok(all.length === 52 && new Set(all).size === 52, 'after 300 plays all 52 cards are accounted for, none duplicated');
-ok(Object.values(g.players).every((p) => p.hand.length === 5), 'every hand still has 5 cards');
-ok(wallCards(g).length > 0 && new Set(wallCards(g)).size === wallCards(g).length, 'wall shows each played card once');
+// ───── teacher, skip, late joiner, removal ─────
+g = act(g, 'teacher', 'draw', null, FU).g;
+const drawn = g.turn.card;
+g = skip(g);
+ok(g.turn.speaker === 'c' && g.deck[g.deck.length - 1] === drawn && g.turns.length === 1, 'skip passes the turn; the drawn card goes to the bottom, unused');
+g = join(g, 'e', 'نور', 'pen').g;
+ok(g.order[4] === 'e', 'a late joiner sits at the end');
+for (const s of ['draw', 'flip', 'said']) g = act(g, 'teacher', s, null, FU).g;
+ok(g.turn.asker === 'd', 'teacher can run every step');
+g = removePlayer(g, 'd');
+ok(g.turn.speaker === 'e' && g.turns.length === 2, 'removing the asker keeps the answer and passes the turn on');
+g = act(g, 'e', 'draw', null, FU).g;
+const eCard = g.turn.card;
+g = removePlayer(g, 'e');
+ok(g.turn.speaker === 'a' && g.deck[0] === eCard, 'removing the speaker returns the unused card and seats the next student');
 
-// test player plays don't reach the wall
-let g2 = goQuestion(join(newGame(2, dayPlan(2, {}).pool, '9999'), 't', 'المعلم', true).g, 0, 8);
-g2 = play(g2, 't', g2.players.t.hand[0]).g;
-ok(wallCards(g2).length === 0, 'test player plays are left off the wall');
+// ───── one student, running out, wall ─────
+let s = start(join(newGame(3, dayPlan(3, {}).cards, '2222'), 'x', 'منى', 'key').g);
+for (let i = 0; i < 16; i++) for (const st of ['draw', 'flip', 'said']) s = act(s, 'x', st, null, FU).g;
+ok(s.turns.length === 16 && s.turn.speaker === 'x' && s.turn.step === 'draw', 'one student: no follow-up, 16 turns in a row');
+ok(!act(s, 'x', 'draw', null, FU).ok, 'no drawing when all 16 cards are used');
+s = reshuffle(s);
+ok(s.deck.length === 16 && new Set(s.deck).size === 16, 'reshuffle puts the answered cards back');
+ok(wallCards(s).length === 16, 'the wall shows each answered question once');
+let tst = start(join(newGame(4, dayPlan(4, {}).cards, '3333'), 't', 'المعلم', 'star', true).g);
+for (const st of ['draw', 'flip', 'said']) tst = act(tst, 't', st, null, FU).g;
+ok(tst.turns.length === 1 && wallCards(tst).length === 0, 'test player turns are left off the wall');
 
-// removing a player returns their cards
-g = removePlayer(g, 'a');
-const all2 = [...Object.values(g.players).flatMap((p) => p.hand), ...g.deck, ...g.discard];
-ok(all2.length === 52 && !g.players.a, 'removing a player returns their cards to the deck');
-
-// customisation
-const c = { sharedHidden: ['s0'], days: { 1: { qHidden: [7], qOrder: [1, 0, 2, 3, 4, 5, 6, 7], cardsHidden: ['d1-0'] } } };
-const p1 = dayPlan(1, c);
-ok(p1.questions.length === 7 && p1.questions[0].i === 1 && !p1.pool.includes('s0') && !p1.pool.includes('d1-0'), 'hidden questions/cards and new order are applied');
+// ───── full table ─────
+let f = newGame(5, dayPlan(5, {}).cards, '4444');
+['cup', 'book', 'lantern', 'palm', 'pen', 'dallah'].forEach((e, i) => (f = join(f, 'p' + i, 'لاعب ' + 'أبتثجح'[i], e).g));
+ok(f.order.length === MAX_PLAYERS && join(f, 'z', 'زائد', 'key').error === 'full', `${MAX_PLAYERS} seats; a 7th student is refused`);
 
 console.log(fails ? `\n${fails} check(s) FAILED` : '\nAll checks passed.');
 process.exit(fails ? 1 : 0);
