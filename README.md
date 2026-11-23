@@ -1,84 +1,64 @@
-# مقهى المحادثة: المجلس
+# مقهى المحادثة: the card game
 
-A conversation-café site about the culture of the Arab majlis: three timed 50-minute sessions for mixed-level
-learners of Arabic.
-- **الضيف (the guest):** the seven-episode "The Emirati Majlis" series by The Knot, then pair talk, greetings,
-  do/don't cards and a quiz.
-- **المضيف (the host):** hosting phrases, a real Arabic-coffee round, and gift and dining role-plays.
-- **المجلس (the majlis):** the sweets-tray story, seating and roles, then two majlis circles with topic cards.
+A conversation card game for the Concordia Language Villages Arabic program:
 
-Everything students see is فصحى with full tashkeel.
+| | |
+|---|---|
+| Group | 4 students (up to 6 can join) |
+| Schedule | 5 days × 50 minutes |
+| Topics | One current news topic per day |
 
-## Three views
+Each student holds 5 cards on their phone. Every card is a **sentence starter** with full harakat and a 1–5★ difficulty.
+
+When a student uses a starter in the discussion, they play it on their phone:
+- **Projector:** the card pops up with their nickname.
+- **Phone:** they draw a new card.
+
+There are no scores, grades or leaderboards.
+
+The look is osu!-inspired, in a café dark-academia palette, and joining works like Kahoot (QR code or PIN). The music is an original maqam Ḥijāz lo-fi loop, generated in the browser.
+
+## Three windows
 
 | Address | Who | What |
 |---|---|---|
-| `#/` | Students, on their phones | The sessions you have unlocked. Each one has its phrases and words, the videos with Arabic captions, and a self-marking practice quiz. |
-| `#/watch` | Students, during the session 1 videos | Viewing guide: questions for each episode, plus the word hunt. A "check" button at the end of each block is for the pair talk that follows. Answers stay on the phone. |
-| `#/screen` | The projector | Follows the teacher window: segment, timer, cards, video. No answers, notes or controls. |
-| `#/teacher` | You | Password-protected. The password is asked for every time you enter the teacher view. |
+| `#/host` | You, on the laptop | Password-protected. Choose the day, open the lobby, move through the questions. Model answers and fact notes (your eyes only), every player's hand, music, editing, printing, session log, backup. English, with an Arabic switch. |
+| `#/screen` | The projector | Topic select, the lobby (QR + PIN), the current question with a clock that counts up, card pop-ups, and the wall of the day's cards at the end. |
+| `#/join/PIN` | Students' phones | Join with an Arabic nickname, then see the current question and 5 cards. Tap a card, then «اِسْتَعْمَلْتُهَا ✓». |
 
-### Teacher view
-- **Language:** English or Arabic, with a switch in the top bar. The student content always stays in Arabic.
-- **Sessions:**
-  - open the presenter
-  - customise a session
-  - print its handouts
-  - show the QR code that unlocks the session on students' phones
-- **Presenter:**
-  - timer controls, which also work with Space, the arrow keys and presentation clickers (PageUp/PageDown)
-  - play/pause controls for the video on the projector
-  - lesson notes for each segment (aim and steps)
-  - the answer key before you reveal it
-  - what's next, and a run sheet with planned and actual times
-  - **End session** saves the session to the log
-- **Student view:** a phone-sized live preview of the student site, with a button to open it in a new tab.
-  - Everything is unlocked there, and nothing is saved.
-  - It only works from the teacher view; typing `#/preview` elsewhere goes back to the student home.
-- **Viewing guide:**
-  - **Students:** its QR code is on the Sessions tab and in the presenter during the videos.
-  - **Projector:** a "watch for" box beside each episode.
-  - **You:** its answer key appears in the presenter during the video and the pair talk that follows.
-  - **Paper:** printable copies and a key, for students without phones.
-- **Materials:** a checklist for each session.
-- **Students:** your roster with three levels.
-  - Mixed-level pairs.
-  - Majlis groups with roles (elder, host, server, newcomer, guests).
-  - Either can be shown on the projector.
-- **Session log:** what was covered (planned and actual times) and your notes.
-- **Customise:** skip, reorder or retime segments, and choose which cards and questions to use.
-- **Backup:** export or import everything above as a file.
+## Running a day
 
-The roster, log, ticks and customisations stay in that browser. Nothing goes online.
+1. Open `#/host` on the laptop and enter the password.
+2. Click **Open projector window**, drag it to the projector, and press F there for full screen.
+3. Choose the day, then **Open the lobby**. Students scan the QR code or type the PIN.
+4. **Start: question 1**, then use **Next** and **Back** as you like. Nothing moves on by itself.
+5. **End the day** shows the wall of cards. **Finish and save to the log** records the day.
 
-**About the password:** this is a static site with no server, so the password is a soft lock. It keeps students
-out of the teacher screens, and only a hash is stored in the code. But anyone using the browser's developer tools
-could get past it, so don't put anything confidential there. To change the password, put the SHA-256 hash of the
-new one in `PASSWORD_HASH` in `src/data/teacher.js`.
+If a phone drops off or reloads, it rejoins with the same nickname and the same cards. If your window reloads, it asks for the password, then carries on with the same PIN, and the phones reconnect by themselves.
 
-## Running a session
+## How phones connect
 
-1. Open `#/teacher` on the laptop and enter the password.
-2. Click **Open projector window** and drag that window to the projector.
-   - Click it once, so its videos are allowed to play.
-   - Press F for full screen.
-3. Open the session's presenter. The projector follows everything you do on the laptop.
-4. At the end, click **Share with students** → **Show on projector**. Students scan the code to unlock that
-   session (and the earlier ones) on their phones.
+Phones connect to the laptop **peer-to-peer** (WebRTC):
+- **Relay:** the free public PeerJS server (`0.peerjs.com`) only introduces the devices; cards and nicknames travel directly between them.
+- **If it fails:** if a network blocks peer connections, you can play every student's cards from your window (click a card under their name), or use the printed decks from the Print tab.
 
-Each segment counts down. It turns amber in the last minute, then chimes, turns red and counts the overtime. It
-never moves on by itself.
+## Content
 
-## Editing
+- **Where it lives:** `src/data/week.json`. It holds the 40 shared starters, then the 5 days.
+- **Each day has:**
+  - 8 questions with model answers
+  - 12 daily starters
+  - dated fact notes with sources (as of 22 November 2026)
+- **Before the program runs:** refresh the fact notes.
+- **Editing in the app:** you can hide or reorder questions and hide cards in the **Edit content** tab. Those edits are stored in that browser; use **Backup** to move them.
+- **Everything is public:** this is a static site in a public repo, so the content, including the model answers, can be read by anyone who looks at the code. The password is a soft lock that keeps students out of your window.
 
-- **Student content:** `src/data/sessions.js`. Durations are in seconds; each session adds up to 3000.
-- **Teacher content:** `src/data/teacher.js`. This has the lesson notes in both languages, the materials, the
-  interface text, the password hash and the unlock codes.
-- **Background:** `PLAN.md` has the decisions behind the sessions, and `VIDEO-NOTES.md` has notes on every episode.
+## Development
 
 ```bash
 npm install
 npm run dev
+npx vite-node scripts/check-game.mjs   # game-rule checks
 ```
 
 It deploys to GitHub Pages on every push to `main` (see `.github/workflows/deploy.yml`).
