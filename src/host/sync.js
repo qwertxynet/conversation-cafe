@@ -5,7 +5,7 @@ import { act, askerOf, join, stackOf, takenEmblems, untilTurn } from '../lib/gam
 import { audio } from '../lib/audio.js';
 import { connectedTokens, sendToPeer, sendToToken, tagConnection } from '../lib/net.js';
 
-const SOUND = { draw: 'deal', flip: 'flip', said: 'play', asked: 'pass' };
+const SOUND = { draw: 'deal', said: 'play', asked: 'pass' };
 
 /** What one phone needs: the seats, the current turn, and (for the asker) the follow-up starters. */
 export function syncFor(g, token) {
@@ -35,7 +35,7 @@ export function syncFor(g, token) {
       asker: seat(asker),
       mine: t.speaker === token,
       asking: asker === token,
-      card: c && { q: c.q, f1: c.f1, f3: c.f3, s: c.s },
+      card: c && { q: c.q, s: c.s },
       fu: asker === token && t.step === 'ask' ? t.fu.map((i) => FOLLOWUPS[i]) : [],
     },
     until: untilTurn(g, token),

@@ -5,10 +5,7 @@ import { useStored } from '../lib/store.js';
 
 const chunk = (a, n) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
 
-/**
- * Paper backup. Fold-over cards: 4 per A4 page, each a strip with the question on one half and the two frames on the other.
- * Cut along the dashed line, fold down the middle (the dotted line), and the card is double-sided.
- */
+/** Paper backup: question cards (8 per A4 page, cut along the dashed lines), a teacher page per day, and the follow-up starters. */
 export default function PrintTab({ t }) {
   const [custom] = useStored('custom', {});
   const [sel, setSel] = useState(() => new Set(['cards1']));
@@ -46,10 +43,10 @@ export default function PrintTab({ t }) {
           // a flat list of pages, so the last one doesn't leave a blank page behind
           return [
             sel.has(`cards${d.n}`) &&
-              chunk(plan.cards, 4).map((page, i) => (
-                <section key={d.n + '-' + i} className="sheet fold-sheet">
+              chunk(plan.cards, 8).map((page, i) => (
+                <section key={d.n + '-' + i} className="sheet cut-sheet">
                   {page.map((id) => (
-                    <FoldCard key={id} id={id} title={d.title} />
+                    <PrintCard key={id} id={id} title={d.title} />
                   ))}
                 </section>
               )),
@@ -97,26 +94,15 @@ export default function PrintTab({ t }) {
   );
 }
 
-function FoldCard({ id, title }) {
+function PrintCard({ id, title }) {
   const c = CARDS[id];
   return (
-    <div className="fold" dir="rtl" lang="ar">
-      <div className="fold-half">
-        <p className="fold-top">
-          <span>{title}</span>
-          <Stars n={c.s} />
-        </p>
-        <p className="fold-q">{c.q}</p>
-      </div>
-      <div className="fold-half back">
-        <p className="fold-f">
-          <span className="stars">★</span> {c.f1}
-        </p>
-        <p className="fold-or">أَوْ</p>
-        <p className="fold-f">
-          <span className="stars">★★★</span> {c.f3}
-        </p>
-      </div>
+    <div className="pcard" dir="rtl" lang="ar">
+      <p className="pcard-top">
+        <span>{title}</span>
+        <Stars n={c.s} />
+      </p>
+      <p className="pcard-q">{c.q}</p>
     </div>
   );
 }

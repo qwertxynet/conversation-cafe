@@ -518,9 +518,6 @@ textarea,
 .h-cardtext p {
   margin: 4px 0;
 }
-.h-frame {
-  font-size: 1.15rem;
-}
 .h-fu {
   margin: 4px 0;
   font-size: 1.1rem;
@@ -564,36 +561,24 @@ textarea,
   color: #e3a39b;
 }
 
-/* fold-over cards: 4 per A4 page; question on one half, frames on the other */
-.fold-sheet {
-  display: grid;
-  grid-auto-rows: 66mm;
-  gap: 0;
-  align-content: start;
-}
-.fold {
+/* printed question cards: 8 per A4 page */
+.cut-sheet {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 66mm;
+  align-content: start;
+}
+.pcard {
+  display: flex;
+  flex-direction: column;
+  gap: 2mm;
+  padding: 5mm 6mm;
   border: 1px dashed #8a7a66;
   font-family: var(--f-card);
   color: #1d140c;
-}
-.fold-half {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2mm;
-  padding: 4mm 6mm;
   text-align: center;
 }
-.fold-half + .fold-half {
-  border-inline-start: 1px dotted #b8a68c;
-}
-.fold-half.back {
-  background: #f8f1e2;
-  text-align: start;
-}
-.fold-top {
+.pcard-top {
   display: flex;
   justify-content: space-between;
   margin: 0;
@@ -601,7 +586,10 @@ textarea,
   color: #7d2a24;
   font-weight: 700;
 }
-.fold-q {
+.pcard-top .stars {
+  color: #a37b22;
+}
+.pcard-q {
   margin: 0;
   flex: 1;
   display: grid;
@@ -609,22 +597,6 @@ textarea,
   font-size: 17pt;
   font-weight: 700;
   line-height: 1.6;
-}
-.fold-f {
-  margin: 0;
-  font-size: 12.5pt;
-  font-weight: 600;
-  line-height: 1.65;
-}
-.fold-f .stars {
-  color: #a37b22;
-  font-size: 9pt;
-}
-.fold-or {
-  margin: 0;
-  font-size: 9pt;
-  color: #6b5440;
-  text-align: center;
 }
 @media (max-width: 760px) {
   .h-cardinfo {
@@ -661,7 +633,7 @@ textarea,
     break-after: auto;
     width: auto;
   }
-  .fold-half.back {
+  .pcard {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }

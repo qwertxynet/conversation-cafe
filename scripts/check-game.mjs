@@ -18,8 +18,8 @@ ok(Object.keys(CARDS).length === 80, '80 question cards (16 per day)');
 ok(FOLLOWUPS.length >= 8, `${FOLLOWUPS.length} follow-up starters`);
 const HARAKA = /[ً-ْ]/;
 ok(
-  Object.values(CARDS).every((c) => c.q && c.f1 && c.f3 && c.a && c.s >= 1 && c.s <= 5 && HARAKA.test(c.q) && HARAKA.test(c.f1) && HARAKA.test(c.f3)),
-  'every card has a vowelled question, two vowelled frames, a model answer and 1–5 stars',
+  Object.values(CARDS).every((c) => c.q && c.a && c.s >= 1 && c.s <= 5 && HARAKA.test(c.q) && !('f1' in c) && !('f3' in c)),
+  'every card has a vowelled question, a model answer and 1–5 stars, and no answer frames',
 );
 for (const d of DAYS) {
   const order = defaultOrder(d.n);
@@ -56,14 +56,12 @@ ok(g.phase === 'table' && g.turn.speaker === 'a' && g.turn.step === 'draw', 'fir
 ok(askerOf(g) === 'b', 'the next seat asks the follow-up');
 ok(untilTurn(g, 'a') === 0 && untilTurn(g, 'b') === 1 && untilTurn(g, 'd') === 3, '"your turn in N" counts seats');
 ok(!act(g, 'b', 'draw', null, FU).ok, 'only the speaker (or teacher) can draw');
-ok(!act(g, 'a', 'flip', null, FU).ok, 'cannot flip before drawing');
+ok(!act(g, 'a', 'said', null, FU).ok, 'cannot answer before drawing');
 r = act(g, 'a', 'draw', g.turn.n, FU);
 ok(r.ok && r.g.turn.card === plan.cards[0] && r.g.deck.length === 15, 'drawing takes the top card');
 g = r.g;
-ok(!act(g, 'a', 'said', null, FU).ok, '«قُلْتُهَا» only after the flip');
+ok(!act(g, 'a', 'flip', null, FU).ok, 'there is no flip step any more');
 ok(!act(g, 'a', 'draw', g.turn.n, FU).ok, 'a double tap does not draw twice');
-g = act(g, 'a', 'flip', null, FU).g;
-ok(g.turn.step === 'back', 'flip shows the frames');
 g = act(g, 'a', 'said', null, FU).g;
 ok(
   g.turn.step === 'ask' && g.turn.asker === 'b' && g.turn.fu.length === 3 && g.turn.fu.every((i) => FU.includes(i)),
@@ -83,7 +81,7 @@ g = skip(g);
 ok(g.turn.speaker === 'c' && g.deck[g.deck.length - 1] === drawn && g.turns.length === 1, 'skip passes the turn; the drawn card goes to the bottom, unused');
 g = join(g, 'e', 'نور', 'pen').g;
 ok(g.order[4] === 'e', 'a late joiner sits at the end');
-for (const s of ['draw', 'flip', 'said']) g = act(g, 'teacher', s, null, FU).g;
+for (const s of ['draw', 'said']) g = act(g, 'teacher', s, null, FU).g;
 ok(g.turn.asker === 'd', 'teacher can run every step');
 g = removePlayer(g, 'd');
 ok(g.turn.speaker === 'e' && g.turns.length === 2, 'removing the asker keeps the answer and passes the turn on');
@@ -94,14 +92,14 @@ ok(g.turn.speaker === 'a' && g.deck[0] === eCard, 'removing the speaker returns 
 
 // ───── one student, running out, wall ─────
 let s = start(join(newGame(3, dayPlan(3, {}).cards, '2222'), 'x', 'منى', 'key').g);
-for (let i = 0; i < 16; i++) for (const st of ['draw', 'flip', 'said']) s = act(s, 'x', st, null, FU).g;
+for (let i = 0; i < 16; i++) for (const st of ['draw', 'said']) s = act(s, 'x', st, null, FU).g;
 ok(s.turns.length === 16 && s.turn.speaker === 'x' && s.turn.step === 'draw', 'one student: no follow-up, 16 turns in a row');
 ok(!act(s, 'x', 'draw', null, FU).ok, 'no drawing when all 16 cards are used');
 s = reshuffle(s);
 ok(s.deck.length === 16 && new Set(s.deck).size === 16, 'reshuffle puts the answered cards back');
 ok(wallCards(s).length === 16, 'the wall shows each answered question once');
 let tst = start(join(newGame(4, dayPlan(4, {}).cards, '3333'), 't', 'المعلم', 'star', true).g);
-for (const st of ['draw', 'flip', 'said']) tst = act(tst, 't', st, null, FU).g;
+for (const st of ['draw', 'said']) tst = act(tst, 't', st, null, FU).g;
 ok(tst.turns.length === 1 && wallCards(tst).length === 0, 'test player turns are left off the wall');
 
 // ───── full table ─────

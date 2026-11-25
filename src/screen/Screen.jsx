@@ -100,10 +100,10 @@ function TableView({ game }) {
   const n = game.order.length;
   const idx = (tk) => game.order.indexOf(tk);
   const name = (tk) => game.players[tk]?.name;
-  const showCard = t && t.card && (t.step === 'front' || t.step === 'back');
+  const showCard = t && t.card && t.step === 'front';
   const sp = t ? idx(t.speaker) : -1;
   const spot = sp >= 0 ? seatSpot(sp, n) : null;
-  const flying = showCard && t.step === 'front' && fresh(t.drawnAt, 1600);
+  const flying = showCard && fresh(t.drawnAt, 1600);
   const ls = game.lastSaid;
   const settling = ls && fresh(ls.at, 1500) && idx(ls.token) >= 0 ? { ...ls, spot: seatSpot(idx(ls.token), n, 0.66) } : null;
 
@@ -180,7 +180,7 @@ function TableView({ game }) {
       {lobby && <LobbyCard game={game} />}
       {showCard && (
         <div className={'tv-stage' + (flying ? ' late' : '')} key={'c' + t.n} style={{ '--from-x': (spot.x - 50) * 0.8 + 'vw' }}>
-          <Card3D id={t.card} title={d.title} flipped={t.step === 'back'} size="stage" footer={<>{name(t.speaker)}</>} />
+          <Card3D id={t.card} title={d.title} size="stage" footer={<>{name(t.speaker)}</>} />
         </div>
       )}
     </div>

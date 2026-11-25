@@ -120,7 +120,7 @@ function LobbyCtl({ t, game }) {
   );
 }
 
-const STEPS = ['draw', 'front', 'back', 'ask'];
+const STEPS = ['draw', 'front', 'ask'];
 
 function Who({ g, token }) {
   const p = g.players[token];
@@ -153,7 +153,7 @@ function TurnCtl({ t, game }) {
       </section>
     );
 
-  const steps = { draw: ['draw', t.doDraw], front: ['flip', t.doFlip], back: ['said', t.doSaid], ask: ['asked', t.doAsked] };
+  const steps = { draw: ['draw', t.doDraw], front: ['said', t.doSaid], ask: ['asked', t.doAsked] };
   const [action, label] = steps[turn.step];
   const blocked = turn.step === 'draw' && !game.deck.length;
 
@@ -216,7 +216,7 @@ function TurnCtl({ t, game }) {
 
       {card ? (
         <div className="h-cardinfo">
-          <Card3D card={card} title={d.title} flipped={turn.step !== 'front'} size="host" />
+          <Card3D card={card} title={d.title} size="host" />
           <div className="h-cardtext">
             <div className="h-model">
               <b>{t.model}</b>
@@ -224,13 +224,6 @@ function TurnCtl({ t, game }) {
                 {card.a}
               </p>
             </div>
-            <p className="muted small">{t.frames}:</p>
-            <p className="h-frame" lang="ar" dir="rtl">
-              <span className="stars">★</span> {card.f1}
-            </p>
-            <p className="h-frame" lang="ar" dir="rtl">
-              <span className="stars">★★★</span> {card.f3}
-            </p>
             {turn.step === 'ask' && turn.fu.length > 0 && (
               <>
                 <p className="muted small">{t.followups}:</p>

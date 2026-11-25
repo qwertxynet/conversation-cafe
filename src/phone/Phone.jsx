@@ -102,7 +102,6 @@ function Play({ pin, rec: rec0, test, onLeave }) {
   const [s, setS] = useState(null); // last sync from the host
   const [pick, setPick] = useState(null); // { taken, again } while choosing an emblem
   const [pending, setPending] = useState(false); // a tap is on its way
-  const [peek, setPeek] = useState(false); // the speaker turned their card back to the question
   const [noHostCount, setNoHostCount] = useState(0);
   const client = useRef(null);
   const recRef = useRef(rec);
@@ -142,7 +141,6 @@ function Play({ pin, rec: rec0, test, onLeave }) {
           setPending(false);
           const prev = lastSync.current;
           if (m.turn?.mine && m.turn.step === 'draw' && !(prev?.turn?.mine && prev.turn.n === m.turn.n)) navigator.vibrate?.([120, 60, 120]);
-          if (prev?.turn?.n !== m.turn?.n || prev?.turn?.step !== m.turn?.step) setPeek(false);
           lastSync.current = m;
           setS(m);
         } else if (m.type === 'reject') {
@@ -224,7 +222,7 @@ function Play({ pin, rec: rec0, test, onLeave }) {
               <p>اُنْظُرُوا إِلَى الشَّاشَةِ.</p>
             </section>
           )}
-          {s.phase === 'table' && <Turn s={s} send={send} pending={pending || !online} peek={peek} setPeek={setPeek} />}
+          {s.phase === 'table' && <Turn s={s} send={send} pending={pending || !online} />}
         </>
       )}
     </div>
@@ -273,7 +271,7 @@ function Seats({ seats }) {
   );
 }
 
-function Turn({ s, send, pending, peek, setPeek }) {
+function Turn({ s, send, pending }) {
   const t = s.turn;
   if (!t) return <p className="ph-msg">فِي انْتِظَارِ اللَّاعِبِينَ…</p>;
   const sp = t.speaker;
@@ -298,34 +296,16 @@ function Turn({ s, send, pending, peek, setPeek }) {
           )}
         </section>
       );
-    if (t.step === 'front' || t.step === 'back') {
-      const back = t.step === 'back' && !peek;
+    if (t.step === 'front')
       return (
         <section className="ph-turn mine">
-          <p className="ph-hint">{t.step === 'front' ? 'اِقْرَأِ السُّؤَالَ بِصَوْتٍ عَالٍ، ثُمَّ اقْلِبِ الْبِطَاقَةَ.' : 'اِخْتَرْ إِطَارًا، وَقُلِ الْجُمْلَةَ كَامِلَةً بِصَوْتٍ عَالٍ.'}</p>
-          <Card3D
-            card={t.card}
-            title={s.title}
-            flipped={back}
-            size="phone"
-            className="ph-card deal"
-            onClick={() => (t.step === 'front' ? send('flip') : setPeek(!peek))}
-          />
-          {t.step === 'front' ? (
-            <button className="btn primary ph-act" onClick={() => send('flip')} disabled={pending}>
-              اِقْلِبِ الْبِطَاقَةَ
-            </button>
-          ) : (
-            <>
-              <button className="btn primary ph-act" onClick={() => send('said')} disabled={pending}>
-                قُلْتُهَا ✓
-              </button>
-              <p className="muted ph-small">{peek ? 'اِضْغَطْ عَلَى الْبِطَاقَةِ لِتَرَى الْإِطَارَيْنِ.' : 'اِضْغَطْ عَلَى الْبِطَاقَةِ لِتَرَى السُّؤَالَ.'}</p>
-            </>
-          )}
+          <p className="ph-hint">اِقْرَأِ السُّؤَالَ بِصَوْتٍ عَالٍ، ثُمَّ أَجِبْ عَنْهُ بِكَلِمَاتِكَ.</p>
+          <Card3D card={t.card} title={s.title} size="phone" className="ph-card deal" />
+          <button className="btn primary ph-act" onClick={() => send('said')} disabled={pending}>
+            قُلْتُهَا ✓
+          </button>
         </section>
       );
-    }
     if (t.step === 'ask')
       return (
         <section className="ph-turn">
@@ -368,7 +348,7 @@ function Turn({ s, send, pending, peek, setPeek }) {
         </span>
       </p>
       {t.card ? (
-        <Card3D card={t.card} title={s.title} flipped={t.step !== 'front'} size="phone" className="ph-card watch" />
+        <Card3D card={t.card} title={s.title} size="phone" className="ph-card watch" />
       ) : (
         <div className="ph-deck small">
           <CardBack />

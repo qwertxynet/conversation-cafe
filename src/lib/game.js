@@ -2,8 +2,7 @@
 //
 // A turn, step by step:
 //   draw  – the speaker's seat lights up; they tap Draw
-//   front – the card is face up: they read the question out loud, then Flip
-//   back  – the two answer frames: they answer out loud, then «قُلْتُهَا ✓»
+//   front – the card is face up: they read the question out loud, answer it in their own words, then «قُلْتُهَا ✓»
 //   ask   – the next student in seat order asks one follow-up, then «سَأَلْتُ ✓»
 // Then that asker's own turn starts. The teacher can do any step, or skip a turn.
 import { shuffle } from './store.js';
@@ -114,7 +113,7 @@ const pick = (arr, k) => shuffle(arr).slice(0, k);
 
 /**
  * A step of the turn, done by a student (their token) or by the teacher ('teacher').
- * action: draw | flip | said | asked. n (optional) = the turn number the phone saw, so a late double tap does nothing.
+ * action: draw | said | asked. n (optional) = the turn number the phone saw, so a late double tap does nothing.
  * followups: indices of the follow-up starters that are shown (from the Edit tab).
  * Returns { g, ok }.
  */
@@ -132,11 +131,8 @@ export function act(g0, who, action, n, followups = []) {
     tt.card = g.deck.shift();
     tt.step = 'front';
     tt.drawnAt = Date.now();
-  } else if (action === 'flip') {
-    if (tt.step !== 'front' || !(teacher || who === t.speaker)) return no;
-    tt.step = 'back';
   } else if (action === 'said') {
-    if (tt.step !== 'back' || !(teacher || who === t.speaker)) return no;
+    if (tt.step !== 'front' || !(teacher || who === t.speaker)) return no;
     g.lastSaid = { n: tt.n, card: tt.card, token: tt.speaker, at: Date.now() }; // the card settles by the seat
     if (asker) {
       tt.step = 'ask';

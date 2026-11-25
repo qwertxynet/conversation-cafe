@@ -10,9 +10,9 @@ export function Stars({ n, className = '' }) {
 }
 
 /**
- * A question card with real thickness that turns over in 3D.
- * Front: the day's title, stars and the question. Back: the two answer frames (★ and ★★★).
- * `id` is a card id (or pass `card` = { q, f1, f3, s }).
+ * A question card with real thickness, drawn in 3D.
+ * Front: the day's title, stars and the question. Back: only the star-panel art (students answer in their own words).
+ * `id` is a card id (or pass `card` = { q, s }).
  */
 export default function Card3D({ id, card: c0, title, flipped = false, size = 'md', footer, className = '', onClick, style }) {
   const c = c0 || CARDS[id];
@@ -36,17 +36,7 @@ export default function Card3D({ id, card: c0, title, flipped = false, size = 'm
           <span className="c3-q">{c.q}</span>
           {footer && <span className="c3-foot">{footer}</span>}
         </span>
-        <span className="c3-face c3-back" aria-hidden={!flipped}>
-          <span className="c3-frame">
-            <span className="c3-lv">★</span>
-            <span className="c3-ft">{c.f1}</span>
-          </span>
-          <span className="c3-or">أَوْ</span>
-          <span className="c3-frame">
-            <span className="c3-lv">★★★</span>
-            <span className="c3-ft">{c.f3}</span>
-          </span>
-        </span>
+        <span className="c3-face c3-back" aria-hidden="true" />
         <span className="c3-edge l" />
         <span className="c3-edge r" />
       </span>

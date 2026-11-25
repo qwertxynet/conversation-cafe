@@ -8,7 +8,7 @@ A turn-based conversation table for the Concordia Language Villages Arabic progr
 | Schedule | 5 days × 50 minutes |
 | Topics | One current news topic per day |
 
-**A turn:** the student whose seat lights up draws a card with their own question about the day's topic and reads it out loud. They flip the card in 3D and answer out loud with one of the two **answer frames** on the back (★ simpler, ★★★ fuller). Then the next student in seat order asks them one follow-up question, using starters on their phone, and their own turn begins.
+**A turn:** the student whose seat lights up draws a card with their own question about the day's topic, reads it out loud and answers it in their own words. There are no sentence frames: the back of every card is just the star-panel art. Then the next student in seat order asks them one follow-up question, using starters on their phone, and their own turn begins.
 
 It is not a game: there are no scores, grades or leaderboards. Answered cards stack face down by each seat as a quiet record of turns.
 
@@ -18,9 +18,9 @@ The look is a lamp-lit café table in CSS 3D, in a café dark-academia palette, 
 
 | Address | Who | What |
 |---|---|---|
-| `#/host` | You, on the laptop | Password-protected. Choose the day, open the lobby, start the turns. You can do any step for a student, skip a turn, and see the model answer, both frames and the fact notes (your eyes only). Also music, editing, printing, session log and backup. English, with an Arabic switch. |
+| `#/host` | You, on the laptop | Password-protected. Choose the day, open the lobby, start the turns. You can do any step for a student, skip a turn, and see the model answer and the fact notes (your eyes only). Also music, editing, printing, session log and backup. English, with an Arabic switch. |
 | `#/screen` | The projector | Topic select, the lobby (QR + PIN, seats filling), the table with the current card, and the wall of the day's questions at the end. |
-| `#/join/PIN` | Students' phones | Join with an Arabic nickname and choose an emblem. On your turn: Draw, read, flip, «قُلْتُهَا ✓». When you ask: the follow-up starters, then «سَأَلْتُ ✓». Otherwise: the speaker's card and "your turn in N". |
+| `#/join/PIN` | Students' phones | Join with an Arabic nickname and choose an emblem. On your turn: Draw, read and answer, «قُلْتُهَا ✓». When you ask: the follow-up starters, then «سَأَلْتُ ✓». Otherwise: the speaker's card and "your turn in N". |
 
 ## Running a day
 
@@ -38,11 +38,11 @@ If a phone drops off or reloads, it rejoins in the same seat. If your window rel
 
 Phones connect to the laptop **peer-to-peer** (WebRTC):
 - **Relay:** the free public PeerJS server (`0.peerjs.com`) only introduces the devices; turns and nicknames travel directly between them.
-- **If it fails:** if a network blocks peer connections, you can run every turn from your window, or use the printed fold-over cards from the Print tab (4 per A4 page; fold each one down the middle so the question and the frames are back to back).
+- **If it fails:** if a network blocks peer connections, you can run every turn from your window, or use the printed question cards from the Print tab (8 per A4 page).
 
 ## Content
 
-- **Question cards:** `src/data/cards.json`. 16 cards per day: the question, the two frames and a model answer, all approved; plus the shared follow-up starters.
+- **Question cards:** `src/data/cards.json`. 16 cards per day: the question, its stars and a model answer; plus the shared follow-up starters.
 - **Days:** `src/data/week.json` holds each day's title, stars and dated fact notes with sources (as of 22 November 2026). **Refresh the fact notes before the program runs.**
 - **Editing in the app:** the **Edit content** tab hides or reorders cards and hides follow-up starters. Those edits are stored in that browser; use **Backup** to move them.
 - **Everything is public:** this is a static site in a public repo, so the content, including the model answers, can be read by anyone who looks at the code. The password is a soft lock that keeps students out of your window.
